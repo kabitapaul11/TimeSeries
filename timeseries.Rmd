@@ -1,0 +1,229 @@
+---
+title: "TimeSeries"
+author: "Student Name : Kabita Paul"
+date: "25/10/2019"
+output: 
+  html_document:
+    code_folding: show
+    fig_height: 5
+    fig_width: 8
+    highlight: tango
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes 
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Purpose:** 
+
+To perform time series analysis to predict future customer sentiment on Twitter
+Description: The objective of this study is to find the right time series model to make predictions about the future customer sentiment in Twitter network of AT&T. The data contains the average hourly sentiment of tweets customers sent to AT&T’s Twitter handle.  
+
+**Instructions:** 
+Please follow these steps:
+1.	In Canvas, navigate to Assignments and then Assignment4
+2.	Download and save the data set ATT_Twitter.csv
+3.	Read the file:
+
+```{r}
+library(data.table)
+data <- fread("ATT_Twitter.csv", sep=",", header=T, strip.white = T, na.strings = c("NA","NaN","","?"))
+
+```
+
+```{r}
+#colnames(data)
+head(data)
+#tail(data)
+```
+
+4.	Use packages “forecast”, “timeSeries”, and “rugarch” to answer the following questions:
+
+```{r}
+library(forecast)
+library(timeSeries)
+library(rugarch)
+```
+
+4.1.	(5 points) Paste the plot of the time series in the space below:
+
+
+```{r}
+x = ts(data[,2],start= c(2016,6,16,0), frequency= 24)
+# x
+plot(x)
+```      
+
+```{r}
+
+#x
+```
+
+4.2.	(10 points) Determine if this time series is a random walk process?
+
+```{r}
+PP.test(x) # Phillips-Perron Unit Root Test to check if the time series is random walk process
+```
+ p value 0.01 suggests rejection of null hypothesis. Therefore, the time series is not random walk.
+ 
+ 
+4.3.	(20 points) Use ACF and PACF to determine if the times series has any MA or AR process. If so, what is (are) the order(s)? Please paste the ACF and PACF plots in the space below:
+
+```{r}
+par(mfrow = c(1,2))
+acf(x,main='ACF Twitter Sentiments')
+pacf(x,main='PACF Twitter Sentiments')
+```
+
+
+4.4.	(5 points) Use auto.arima function to determine the best model ARIMA model for this data. What is the best order? 
+
+```{r}
+ARIMAfit = auto.arima(x, approximation=FALSE,trace=TRUE)
+```
+
+```{r}
+summary(ARIMAfit)
+```
+
+Then we can use the best ARIMA model to forecastfuture customersentiment
+
+```{r}
+pred = predict(ARIMAfit, n.ahead = 48)
+pred
+```
+
+```{r}
+#pred$pred[1-24]
+pred$se[1-24]
+```
+
+We can plot the data
+```{r}
+par(mfrow = c(1,1))
+plot(x,type='l',xlim=c(2130,2140),ylim=c(.32,.58),xlab = 'Hour',ylab = 'Twitter Sentiment')
+lines((pred$pred),col='blue')
+lines((pred$pred+2*pred$se[1-24]),col='orange')
+lines((pred$pred-2*pred$se[1-24]),col='orange')
+```
+
+
+5.	Use “rugarch” package to build ARCH and GARCH models. Use “sGARCH” in the specification.
+5.1.	(5 points) First use armaOrder(0,0). What are the values of AIC and BIC?
+
+```{r}
+#loading packages
+library(quantmod)
+library(lattice)
+library(timeSeries)
+library(rugarch)
+```
+```{r}
+spec1= ugarchspec(variance.model=list(model="sGARCH"),
+                 mean.model=list(armaOrder=c(0,0)))
+```
+
+```{r}
+fit1=ugarchfit(data=x,spec=spec1)
+show(fit1)
+```
+Then we obtain fitted volatility series:
+
+```{r}
+v1=sigma(fit1)
+ts.plot(as.numeric(v1)) 
+```
+
+```{r}
+fit1_pred <- ugarchforecast(fit1, data = x, n.ahead = 10)
+head(sigma(fit1_pred))
+head(fitted(fit1_pred))
+plot(fit1_pred,which=1)
+```
+
+
+5.2.	(5 points) Now use armaOrder(0,1). What are the values of AIC and BIC?
+
+We can now specify a ARMA(0,1)  model with mean-equation being a constant:
+
+```{r}
+spec2=ugarchspec(variance.model=list(model="sGARCH"),
+                 mean.model=list(armaOrder=c(0,1)))
+fit2=ugarchfit(data=x,spec=spec2)
+show(fit2)
+
+v2=sigma(fit2)
+ts.plot(as.numeric(v2)) 
+
+```
+
+```{r}
+fit2_pred <- ugarchforecast(fit2, data = x, n.ahead = 10)
+head(sigma(fit2_pred))
+head(fitted(fit2_pred))
+plot(fit2_pred,which=1)
+```
+
+6.	Use “rugarch” package to build ARCH and GARCH models. Use “apARCH” in the specification.
+6.1.	(5 points) First use armaOrder(0,0). What are the values of AIC and BIC?
+
+
+```{r}
+spec3=ugarchspec(variance.model=list(model="apARCH"),
+                 mean.model=list(armaOrder=c(0,0)))
+fit3=ugarchfit(data=x,spec=spec3)
+show(fit3)
+
+v3=sigma(fit3)
+ts.plot(as.numeric(v3)) 
+
+```
+```{r}
+fit3_pred <- ugarchforecast(fit3, data = x, n.ahead = 10)
+head(sigma(fit3_pred))
+head(fitted(fit3_pred))
+plot(fit3_pred,which=1)
+```
+
+
+6.2.	(5 points) Now use armaOrder(0,1). What are the values of AIC and BIC?
+
+```{r}
+spec4=ugarchspec(variance.model=list(model="apARCH"),
+                 mean.model=list(armaOrder=c(0,1)))
+fit4=ugarchfit(data=x,spec=spec4)
+show(fit4)
+
+v4=sigma(fit4)
+ts.plot(as.numeric(v4)) 
+
+```
+
+```{r}
+fit4_pred <- ugarchforecast(fit4, data = x, n.ahead = 10)
+head(sigma(fit4_pred))
+head(fitted(fit4_pred))
+plot(fit4_pred,which=1)
+```
+
+
+
+6.3.	(10 points) Using scholarly articles, explain what is the main difference between apARCH (asymmetric power ARCH) and simple GARCH models?  
+
+
+
+7.	(30 points) Based on your analysis in 5 and 6, which model specification you would choose for predicting the future values? How the values of AIC and BIC influence your decision? 
+
+```{r}
+#show(fit3)
+```
+
+Ans.
